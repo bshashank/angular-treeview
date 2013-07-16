@@ -1,0 +1,34 @@
+<style>
+.tree-view ul {
+  list-style:none;
+}
+.tree-view-node {
+  display:inline-block;
+}
+.tree-view-leaf-node-text, .tree-view-parent-node-text {
+  cursor: pointer;
+}
+</style>
+
+<script type="text/ng-template"  id="tree_item_renderer.html">
+  <div ng-switch="node.nodes.length > 0" ng-init="showChild=false" class="tree-view-node">
+
+    <div ng-switch-when="true" class="tree-view-parent-node">
+      <div ng-click="showChild = !showChild" class="tree-view-parent-node-text">{{node.text}}</div>
+      <ul ng-show="showChild">
+        <li ng-repeat="node in node.nodes" ng-include="'tree_item_renderer.html'"></li>
+      </ul>
+    </div>
+
+    <div ng-switch-when="false" class="tree-view-leaf-node">
+      <div ng-click="ngModel = data.value || data.text" class="tree-view-leaf-node-text">{{node.text}}</div>
+    </div>
+
+  </div>
+</script>
+
+<div class="tree-view">
+  <ul>
+    <li ng-repeat="node in tree" ng-include="'tree_item_renderer.html'"></li>
+  </ul>
+</div>
