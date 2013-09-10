@@ -1,34 +1,4 @@
-directiveName = "treeView"
-
-template = """
-<script type="text/ng-template"  id="recursive_tree_renderer.html">
-  <div ng-switch="node.nodes.length > 0" ng-init="node.expanded = false" class="tree-view-node" ng-show="node.visible">
-
-    <div ng-switch-when="true" class="tree-view-parent-node">
-      <div ng-click="clickParent(node)" class="tree-view-parent-node-text">
-      <span ng-class="{'tree-view-parent-icon-expanded': node.expanded, 'tree-view-parent-icon': !node.expanded}">
-      </span>{{node.text}}</div>
-      <ul ng-show="node.expanded || node.expandedFromSearch">
-        <li ng-repeat="node in node.nodes  | filter:searchFilter" ng-include="'recursive_tree_renderer.html'"></li>
-      </ul>
-    </div>
-
-    <div ng-switch-when="false" class="tree-view-leaf-node">
-      <div ng-click="select(node)" class="tree-view-leaf-node-text" ng-class="{'tree-view-leaf-node-selected': isSelected(node)}">{{node.visibleText}}</div>
-    </div>
-
-  </div>
-</script>
-
-<div class="tree-view">
-  <ul>
-    <li ng-repeat="node in rootNode" ng-include="'recursive_tree_renderer.html'"></li>
-  </ul>
-</div>
-"""
-
 # util functions
-
 searchFunc = (node, searchText) -> # returns true on match, false on miss
   return if node.searchText.search(searchText) == -1 then false else true
 
@@ -68,8 +38,37 @@ collapseAll = (node, onlySearch=false) -> # collapse node and all children nodes
   node.expandedFromSearch = false
   if node.nodes then collapseAll(child) for child in node.nodes
 
+hideElement = (el) -> el.css('display', 'none')
+showElement = (el) -> el.css('display', 'block')
+
+updateDom = (node) ->
+  if node.visible
+    showElement node.dom
+    if node.bucket
+      if node.expanded || node.expandedFromSearch
+        showElement node.bucket
+        node.dom.addClass('tree-view-parent-expanded')
+      else
+        hideElement node.bucket
+        node.dom.removeClass('tree-view-parent-expanded')
+  else
+    hideElement node.dom
+
+  if node.nodes
+    for child in node.nodes
+      updateDom(child)
+
+clickNode = (node) ->
+  if !node.expanded
+    node.expanded = true
+    showElement node.bucket
+  else
+    collapseAll(node)
+    updateDom(node)
+
+
 directiveDefinition =
-  restrict: "A"
+  restrict: "EA"
   scope:
     search: "=searchModel"
     selected: "=ngModel"
@@ -79,46 +78,65 @@ directiveDefinition =
 
     post: (scope, element, attrs) ->
 
+      element.addClass('tree-view')
       # crude clipsize not much use...
       scope.clipSize = if attrs.clipSize then parseInt(attrs.clipSize, 10) else 0
 
+
       initializeNode = (node) ->
         node.visible = true
+        node.expanded = false
+        node.expandedFromSearch = false
         node.searchText = node.text.toLowerCase()
+
         if (!scope.clipSize || node.text.length < scope.clipSize)
           node.visibleText = node.text
         else
           node.visibleText = "#{ node.text.slice(0, scope.clipSize-3)}..."
 
         if node.nodes && node.nodes.length > 0
-          initializeNode(child) for child in node.nodes
+          # parent DOM
+          node.icon = angular.element("<span class='tree-view-parent-icon'></span>")
+          node.dom = angular.element("<div class='tree-view-parent-node'></div>").append(node.icon)
+          node.bucket = angular.element("<div style='display:none;' class='tree-view-children'></div>")
+          txt = angular.element("<span class='tree-view-text'>#{node.visibleText}</span>")
+          node.dom.append(txt).append(node.bucket)
+          node.parent.bucket.append(node.dom)
+          txt.bind "click", () -> clickNode(node)
+          node.icon.bind "click", () -> clickNode(node)
+          for child in node.nodes
+            child.parent = node
+            initializeNode(child)
+        else
+          # child DOM
+          node.dom = angular.element("<div class='tree-view-leaf-node'>#{node.visibleText}</div>")
+          node.parent.bucket.append(node.dom)
+          node.dom.bind "click", () ->
+            scope.selectedNode = node
+            scope.$apply()
+
+      scope.$watch 'selectedNode',  (newVal,oldVal) ->
+        if oldVal then oldVal.dom.removeClass('tree-view-leaf-node-selected')
+        if newVal
+          newVal.dom.addClass('tree-view-leaf-node-selected')
+          scope.selected = newVal.value || newVal.text
 
       initializeTree = (tree) ->
+        element.children().remove()
+        tree.bucket = element
         for node in tree
+          node.parent = tree
           initializeNode(node)
-        scope.rootNode = tree
 
-      scope.rootNode = []
+      scope.$watch "search", (search) ->
+        if search != undefined
+          updateVisibility(scope.tree, search.toLowerCase())
+          updateDom(node) for node in scope.tree
 
-      scope.clickParent = (node) ->
-        if node.expanded
-          collapseAll(node)
-        else
-          node.expanded = true
-
-      scope.$watch "search", -> updateVisibility(scope.tree, scope.search)
-
-      scope.select = (node) ->
-        scope.selected = node.value || node.text
-        scope.ngOnchange({value: scope.selected})
-      scope.isSelected = (node) -> return scope.selected == (node.value || node.text)
 
       scope.$watch 'tree', (tree) ->
         initializeTree(scope.tree)
-        updateVisibility(scope.tree, scope.search)
-
-  template: template
 
 angular
-  .module(directiveName, [])
-  .directive(directiveName, -> return directiveDefinition)
+  .module("treeView", [])
+  .directive("treeView", -> return directiveDefinition)

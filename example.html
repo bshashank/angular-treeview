@@ -4,8 +4,8 @@
   <title></title>
   <script data-require="angular.js@1.1.5" data-semver="1.1.5" src="http://code.angularjs.org/1.1.5/angular.min.js"></script>
 
-  <script src="src/angular-treeview.js"></script>
-  <link rel="stylesheet" type="text/css" href="src/angular-treeview.css" />
+  <script src="build/angular-treeview.js"></script>
+  <link rel="stylesheet" type="text/css" href="build/angular-treeview.css" />
 
   <script src="exampledata.js"></script>
 
@@ -28,7 +28,7 @@
     <div>Selected Item: {{selectedItem}}</div>
     <br/>
 
-    <div tree-view tree="tree" ng-model="selectedItem" search-model="search"></div>
+    <tree-view tree="tree" ng-model="selectedItem" search-model="search"></tree-view>
 
 
   </div>
